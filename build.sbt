@@ -21,13 +21,13 @@ version := "1.0"
 // mostly only necessary if you intend to publish your library's binaries on a
 // place like Sonatype or Bintray.
 
-addSbtPlugin("au.com.onegeek" % "sbt-dotenv" % "2.1.227")
 
 // Want to use a published library in your project?
 // You can define other libraries as dependencies in your build like this:
 
 libraryDependencies ++= Seq(
     "org.scala-lang.modules" %% "scala-parser-combinators" % "1.1.2",
+    "com.google.apis" % "google-api-services-youtube" % "v3-rev174-1.22.0",
 )
 // Here, `libraryDependencies` is a set of dependencies, and by using `+=`,
 // we're adding the scala-parser-combinators dependency to the set of dependencies
