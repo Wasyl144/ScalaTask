@@ -34,7 +34,7 @@ object Main extends App {
   val PATHTOFILE: String = PATH + FILENAME
   val scope: Collection[String] =
     Arrays.asList("https://www.googleapis.com/auth/youtube.force-ssl", "https://www.googleapis.com/auth/youtubepartner")
-  val VIDEO_ID = "leFuF-zoVzA"
+  val VIDEO_ID = "rHP-OPXK2ig"
 
   
   /*
@@ -81,7 +81,7 @@ object Main extends App {
 
   val request = youTube.captions().download(VIDEO_ID)
   request.getMediaHttpDownloader()
-  print(request.executeMediaAndDownloadTo(new FileOutputStream("outpot.txt")))
+  request.executeMediaAndDownloadTo(new FileOutputStream("outpot.txt"))
   
   
 
