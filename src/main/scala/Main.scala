@@ -78,10 +78,19 @@ object Main extends App {
 
   val ssss: ju.List[String] =
     Arrays.asList("snippet")
+  
+  /*
+    Im makeing request to Google API for download CaptionsID to use 
+    later in next request
+  */
 
   val requestCaptionId = youTube.captions().list(ssss, VIDEO_ID)
   val responseCaptionId = requestCaptionId.execute()
   val captionId = responseCaptionId.getItems().get(0).getId()
+
+  /*
+    Main request to get Captions from ID Video
+  */
 
   val requestCaptions = youTube.captions().download(captionId)
   requestCaptions.getMediaHttpDownloader()
