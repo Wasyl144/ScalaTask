@@ -3,3 +3,6 @@
 .metals
 .vscode
 target
+src/main/resources/client_secret.json
+.scalafmt.conf
+outpot.txt

@@ -27,7 +27,8 @@ version := "1.0"
 
 libraryDependencies ++= Seq(
     "org.scala-lang.modules" %% "scala-parser-combinators" % "1.1.2",
-    "com.google.apis" % "google-api-services-youtube" % "v3-rev174-1.22.0",
+    "com.google.apis" % "google-api-services-youtube" % "v3-rev20210410-1.31.0",
+    "com.google.oauth-client" % "google-oauth-client-jetty" % "1.31.0",
 )
 // Here, `libraryDependencies` is a set of dependencies, and by using `+=`,
 // we're adding the scala-parser-combinators dependency to the set of dependencies
