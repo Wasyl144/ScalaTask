@@ -33,8 +33,8 @@ object Main extends App {
   val FILENAME: String = "/testFile.txt"
   val PATHTOFILE: String = PATH + FILENAME
   val scope: Collection[String] =
-    Arrays.asList("https://www.googleapis.com/auth/youtube.force-ssl", "https://www.googleapis.com/auth/youtubepartner")
-  val VIDEO_ID = "rHP-OPXK2ig"
+    Arrays.asList("https://www.googleapis.com/auth/youtube.force-ssl")
+  val VIDEO_ID = "6Af6b_wyiwI"
 
   
   /*
@@ -77,11 +77,20 @@ object Main extends App {
   val youTube = getService()
 
   val ssss: ju.List[String] =
-    Arrays.asList("id")
+    Arrays.asList("snippet")
 
-  val request = youTube.captions().download(VIDEO_ID)
-  request.getMediaHttpDownloader()
-  request.executeMediaAndDownloadTo(new FileOutputStream("outpot.txt"))
+  val requestCaptionId = youTube.captions().list(ssss, VIDEO_ID)
+  val responseCaptionId = requestCaptionId.execute()
+  val captionId = responseCaptionId.getItems().get(0).getId()
+
+  val requestCaptions = youTube.captions().download(captionId)
+  requestCaptions.getMediaHttpDownloader()
+  requestCaptions.executeMediaAndDownloadTo(new FileOutputStream("outpot.txt"))
+
+
+  println(captionId)
+
+  
   
   
 
