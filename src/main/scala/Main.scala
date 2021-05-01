@@ -3,8 +3,7 @@ import scala.io.Source
 
 object Main extends App {
 
-  /**
-    * Initialize values to use in prgram
+  /** Initialize values to use in prgram
     */
 
   // TODO: Maybe change the input file to get a path from console
@@ -17,32 +16,37 @@ object Main extends App {
 
   // Initialize YouTube timedtext API URL with params
   val URL: String = "https://video.google.com/timedtext?" + LANG
-  
-  /**
-    * ReadFile codeblock is used to return set of id's
+
+  /** ReadFile codeblock is used to return set of id's
     * YouTube Videos
     */
 
-  var readFile = {
+  val readFile = {
     val file = Source.fromResource(FILE_NAME).getLines()
-    var container: Set[String] = Set()
-    val youTubeVideoRegex = raw"((?:https?:)?\/\/)?((?:www|m)\.)?((?:youtube\.com|youtu.be))(\/(?:[\w\-]+\?v=|embed\/|v\/)?)([\w\-]+)(\S+)".r
-    file.foreach((value) => {
-      value match {
-        case youTubeVideoRegex(_*) => {
-          println("DEBUG: " + value + " its legit yt link")
-          val filteredValue = youTubeVideoRegex.replaceAllIn(value, m => m.group(5))
-          container += filteredValue 
+    val youTubeVideoRegex =
+      raw"((?:https?:)?\/\/)?((?:www|m)\.)?((?:youtube\.com|youtu.be))(\/(?:[\w\-]+\?v=|embed\/|v\/)?)([\w\-]+)(\S+)".r
+    file
+      .filter((value) => {
+        value match {
+          case youTubeVideoRegex(_*) => {
+            println("DEBUG: " + value + " its legit yt link")
+            true
+          }
+          case _ => {
+            println("DEBUG: Its not a YouTube legit link")
+            false
+          }
         }
-        case _ => println("DEBUG: Its not a YouTube legit link")
-      }
-    })
-    container
+      })
+      .map((value) => {
+        youTubeVideoRegex.replaceAllIn(value, m => m.group(5))
+      })
+      .toSet
   }
-  
-  /**
-    * Now im creating a HttpClient to get the YouTube Captions
+
+  /** Now im creating a HttpClient to get the YouTube Captions
     */
 
+  println(readFile)
 
 }
