@@ -21,14 +21,17 @@ version := "1.0"
 // mostly only necessary if you intend to publish your library's binaries on a
 // place like Sonatype or Bintray.
 
+val AkkaVersion = "2.6.8"
+val AkkaHttpVersion = "10.2.4"
 
 // Want to use a published library in your project?
 // You can define other libraries as dependencies in your build like this:
 
 libraryDependencies ++= Seq(
     "org.scala-lang.modules" %% "scala-parser-combinators" % "1.1.2",
-    "com.google.apis" % "google-api-services-youtube" % "v3-rev20210410-1.31.0",
-    "com.google.oauth-client" % "google-oauth-client-jetty" % "1.31.0",
+    "com.typesafe.akka" %% "akka-actor-typed" % AkkaVersion,
+    "com.typesafe.akka" %% "akka-stream" % AkkaVersion,
+    "com.typesafe.akka" %% "akka-http" % AkkaHttpVersion
 )
 // Here, `libraryDependencies` is a set of dependencies, and by using `+=`,
 // we're adding the scala-parser-combinators dependency to the set of dependencies
