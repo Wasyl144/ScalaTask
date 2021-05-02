@@ -60,7 +60,7 @@ object Main extends App {
         }
       })
       .map((value) => {
-        youTubeVideoRegex.replaceAllIn(value, m => m.group(5))
+        youTubeVideoRegex.replaceAllIn(value, matchedString => matchedString.group(5))
       })
       .toSet
   }
