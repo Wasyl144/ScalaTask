@@ -3,6 +3,7 @@ import scala.io.Source
 
 import akka.http.scaladsl.model._
 import akka.http.scaladsl.Http
+import akka.http.scaladsl.model.StatusCodes._
 import HttpMethods._
 import scala.concurrent.Future
 import akka.actor.ActorSystem
@@ -15,6 +16,9 @@ import akka.util.ByteString
 import akka.stream.alpakka.xml.scaladsl.XmlParsing
 import akka.stream.scaladsl.Sink
 import akka.stream.scaladsl.Keep
+import scala.util.Success
+import scala.util.Failure
+import scala.concurrent.Await
 
 object Main extends App {
 
@@ -42,7 +46,7 @@ object Main extends App {
     * YouTube Videos
     */
 
-  val readFile = {
+  val readFile: Future[Set[String]] = Future {
     val file = Source.fromResource(FILE_NAME).getLines()
     val youTubeVideoRegex =
       raw"^((?:https?:)?\/\/)?((?:www|m)\.)?((?:youtube\.com|youtu.be))(\/(?:[\w\-]+\?v=|embed\/|v\/)?)([\w\-]+)(\S+)?".r
@@ -60,7 +64,8 @@ object Main extends App {
         }
       })
       .map((value) => {
-        youTubeVideoRegex.replaceAllIn(value, matchedString => matchedString.group(5))
+        youTubeVideoRegex
+          .replaceAllIn(value, matchedString => matchedString.group(5))
       })
       .toSet
   }
@@ -68,8 +73,6 @@ object Main extends App {
   /*
    * Now im creating a HttpClient to get the YouTube Captions
    */
-
-   println(readFile)
 
   def sendRequest(videoId: String): Future[String] = {
     val youTubeRequest = HttpRequest(GET, uri = URL + "v=" + videoId)
@@ -87,15 +90,78 @@ object Main extends App {
     .via(XmlParsing.parser)
     .toMat(Sink.seq)(Keep.right)
 
-
-  
   // TODO: Refactor this code now is only for test purposes
-    
-  readFile.foreach(value => {
-    sendRequest(value).foreach( secValue =>
-      println(secValue)
-    )
-    println("////////////////////////////////////////////////////////////////")
+
+  // TODO: Create an Object to store data.
+
+  var listOfDTOs: List[youTubeDTO] = List()
+
+  // readFile.foreach(value => {
+  //   val testObject: youTubeDTO = new youTubeDTO
+  //   testObject.set_videoId(value)
+  //   sendRequest(value).onComplete({
+  //     case Success(value)     => {
+  //       testObject.set_captionsDirty(value)
+  //       println("////dddd////")
+  //       println("passitoeie")
+  //       println(testObject.get_captionsDirty())
+  //       listOfDTOs.+:(testObject)
+  //     }
+  //     case Failure(exception) => println(exception)
+  //   })
+  //   println("////////////////////////////////////////////////////////////////")
+  // })
+  readFile.onComplete({
+    case Success(file) => {
+      file.foreach(value => {
+        val testObject: youTubeDTO = new youTubeDTO
+        testObject.set_videoId(value)
+        sendRequest(value).onComplete({
+          case Success(value) => {
+            testObject.set_captionsDirty(value)
+            println("////dddd////")
+            println("passitoeie")
+            println(testObject.get_captionsDirty())
+            listOfDTOs.+:(testObject)
+          }
+          case Failure(exception) => println(exception)
+        })
+        println(
+          "////////////////////////////////////////////////////////////////"
+        )
+      })
+    }
+    case Failure(exception) => println(exception)
   })
 
+
+  // println(testObject.get_videoId)
+  // println(testObject.get_captionsDirty())
+
+}
+
+class youTubeDTO {
+  private var videoId: String = ""
+  private var captionsDirty: String = ""
+  private var captionsPlainText: String = ""
+
+  // Getters and setters
+  def set_videoId(id: String) {
+    videoId = id
+  }
+  def get_videoId(): String = {
+    videoId
+  }
+  def set_captionsDirty(captions: String) {
+    captionsDirty = captions
+  }
+  def get_captionsDirty(): String = {
+    captionsDirty
+  }
+  def set_captionsPlainText(captions: String) {
+    captionsPlainText = captions
+  }
+  def get_captionsPlainText(): String = {
+    captionsPlainText
+  }
 }
