@@ -29,10 +29,12 @@ val AkkaHttpVersion = "10.2.4"
 
 libraryDependencies ++= Seq(
     "org.scala-lang.modules" %% "scala-parser-combinators" % "1.1.2",
+    "org.scala-lang.modules" %% "scala-xml" % "1.3.0",
     "com.typesafe.akka" %% "akka-actor-typed" % AkkaVersion,
     "com.typesafe.akka" %% "akka-stream" % AkkaVersion,
     "com.typesafe.akka" %% "akka-http" % AkkaHttpVersion,
-    "com.lightbend.akka" %% "akka-stream-alpakka-xml" % "2.0.2"
+    "com.lightbend.akka" %% "akka-stream-alpakka-xml" % "2.0.2",
+    "com.lihaoyi" %% "os-lib" % "0.7.3"
 )
 // Here, `libraryDependencies` is a set of dependencies, and by using `+=`,
 // we're adding the scala-parser-combinators dependency to the set of dependencies

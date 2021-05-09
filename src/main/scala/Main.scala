@@ -1,6 +1,6 @@
 import collection.JavaConverters._
 import scala.io.Source
-
+import scala.xml._
 import akka.http.scaladsl.model._
 import akka.http.scaladsl.Http
 import akka.http.scaladsl.model.StatusCodes._
@@ -10,10 +10,10 @@ import akka.actor.ActorSystem
 import akka.stream.ActorMaterializer
 import scala.concurrent.duration._
 import scala.concurrent.ExecutionContext.Implicits.global
-import akka.stream.alpakka.xml.scaladsl
+// import akka.stream.alpakka.xml.scaladsl
 import akka.stream.scaladsl.Flow
 import akka.util.ByteString
-import akka.stream.alpakka.xml.scaladsl.XmlParsing
+// import akka.stream.alpakka.xml.scaladsl.XmlParsing
 import akka.stream.scaladsl.Sink
 import akka.stream.scaladsl.Keep
 import scala.util.Success
@@ -34,7 +34,10 @@ object Main extends App {
   val LANG: String = "lang=en&"
 
   // Initialize YouTube timedtext API URL with params
-  val URL: String = "https://video.google.com/timedtext?" + LANG
+  val URL: String = "https://www.youtube.com/api/timedtext?" + LANG
+
+  // Param neede to better text format
+  val SUBTITLE_FORMAT = "&fmt=srv3"
 
   // Init akka.actors
   implicit val system = ActorSystem()
@@ -75,64 +78,61 @@ object Main extends App {
    */
 
   def sendRequest(videoId: String): Future[String] = {
-    val youTubeRequest = HttpRequest(GET, uri = URL + "v=" + videoId)
+    val youTubeRequest = HttpRequest(GET, uri = URL + "v=" + videoId + SUBTITLE_FORMAT)
     println(URL + "v=" + videoId)
     val responseFuture = Http().singleRequest(youTubeRequest)
     val entityFuture: Future[HttpEntity.Strict] =
       responseFuture.flatMap(res => {
+        println(res.headers)
         res.entity.toStrict(3.seconds)
       })
     entityFuture.map(entity => entity.data.utf8String)
   }
 
-  val parse = Flow[String]
-    .map(ByteString(_))
-    .via(XmlParsing.parser)
-    .toMat(Sink.seq)(Keep.right)
+
 
   // TODO: Refactor this code now is only for test purposes
 
   // TODO: Create an Object to store data.
 
-  var listOfDTOs: List[youTubeDTO] = List()
+  // DEV: Maybe create a microservice to store data, from requests
 
-  // readFile.foreach(value => {
-  //   val testObject: youTubeDTO = new youTubeDTO
-  //   testObject.set_videoId(value)
-  //   sendRequest(value).onComplete({
-  //     case Success(value)     => {
-  //       testObject.set_captionsDirty(value)
-  //       println("////dddd////")
-  //       println("passitoeie")
-  //       println(testObject.get_captionsDirty())
-  //       listOfDTOs.+:(testObject)
-  //     }
-  //     case Failure(exception) => println(exception)
-  //   })
-  //   println("////////////////////////////////////////////////////////////////")
-  // })
+  val listOfDTOs: List[youTubeDTO] = List()
+
+  /**
+    * i'm catching a set of ids and im sending request one by one to youtube server
+    *
+    */
   readFile.onComplete({
     case Success(file) => {
       file.foreach(value => {
-        val testObject: youTubeDTO = new youTubeDTO
-        testObject.set_videoId(value)
         sendRequest(value).onComplete({
           case Success(value) => {
-            testObject.set_captionsDirty(value)
-            println("////dddd////")
-            println("passitoeie")
-            println(testObject.get_captionsDirty())
-            listOfDTOs.+:(testObject)
+            // println(XML.loadString(value).text)
+            println(value)
+            filterWords(XML.loadString(value).text.strip())
           }
-          case Failure(exception) => println(exception)
+          case Failure(exception) => println(exception.getMessage())
         })
         println(
           "////////////////////////////////////////////////////////////////"
         )
       })
     }
-    case Failure(exception) => println(exception)
+    case Failure(exception) => {
+      println(exception.getMessage())
+    }
   })
+
+  val verbFilter: List[String] = List("ing", "ed")
+
+  def filterWords (text: String) = {
+    println("before \n")
+    println(text)
+    val result = text.split(" ").toList.filter(!verbFilter.endsWith(_))
+    println("after \n")
+    println(result)
+  }
 
 
   // println(testObject.get_videoId)
@@ -140,28 +140,5 @@ object Main extends App {
 
 }
 
-class youTubeDTO {
-  private var videoId: String = ""
-  private var captionsDirty: String = ""
-  private var captionsPlainText: String = ""
-
-  // Getters and setters
-  def set_videoId(id: String) {
-    videoId = id
-  }
-  def get_videoId(): String = {
-    videoId
-  }
-  def set_captionsDirty(captions: String) {
-    captionsDirty = captions
-  }
-  def get_captionsDirty(): String = {
-    captionsDirty
-  }
-  def set_captionsPlainText(captions: String) {
-    captionsPlainText = captions
-  }
-  def get_captionsPlainText(): String = {
-    captionsPlainText
-  }
-}
+case class youTubeDTO(videoId: String, dirtySubtitles: String, plainSubtitles: String, wikipediaDetails: List[wikipediaDTO])
+case class wikipediaDTO(article: String, title: String, link: String)
