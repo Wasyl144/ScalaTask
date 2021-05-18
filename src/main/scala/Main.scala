@@ -19,6 +19,13 @@ import akka.stream.scaladsl.Keep
 import scala.util.Success
 import scala.util.Failure
 import scala.concurrent.Await
+import edu.stanford.nlp.coref.data.CorefChain
+import edu.stanford.nlp.ling._
+import edu.stanford.nlp.ie.util._
+import edu.stanford.nlp.pipeline._
+import edu.stanford.nlp.semgraph._
+import edu.stanford.nlp.trees._
+import java.{util => ju}
 
 object Main extends App {
 
@@ -97,7 +104,6 @@ object Main extends App {
 
   // DEV: Maybe create a microservice to store data, from requests
 
-  val listOfDTOs: List[youTubeDTO] = List()
 
   /**
     * i'm catching a set of ids and im sending request one by one to youtube server
@@ -110,7 +116,7 @@ object Main extends App {
           case Success(value) => {
             // println(XML.loadString(value).text)
             println(value)
-            filterWords(XML.loadString(value).text.strip())
+            filterWords(XML.loadString(value).text)
           }
           case Failure(exception) => println(exception.getMessage())
         })
@@ -124,14 +130,45 @@ object Main extends App {
     }
   })
 
-  val verbFilter: List[String] = List("ing", "ed")
+  val verbFilter: List[String] = List("ing", "ed", "for", "this", "at", "the")
 
   def filterWords (text: String) = {
     println("before \n")
-    println(text)
-    val result = text.split(" ").toList.filter(!verbFilter.endsWith(_))
-    println("after \n")
-    println(result)
+    // println(text)
+
+    val props: ju.Properties = new ju.Properties
+    props.setProperty("annotators", "tokenize,ssplit,pos,parse")
+    props.setProperty("coref.algorithm", "neural")
+
+    val pipeline: StanfordCoreNLP = new StanfordCoreNLP(props)
+
+    val document: CoreDocument = new CoreDocument(text)
+
+    println("document")
+
+    pipeline.annotate(document)
+    println("pipe")
+    
+
+    val nouns = document.sentences().asScala.flatMap(word => {
+      word.tokens().asScala.filter(value => {
+        if (value.tag().contains("NN")) true
+        else false
+      })
+    })
+
+    println("\n\n\n\n\n")
+
+    nouns.foreach(value => {
+      println(value)
+    })
+
+
+    // println(text)
+    // val result = text.split(" ").toList.filter(word => verbFilter.map(filter => word.endsWith(filter)))
+    // result.map(word => verbFilter.map(value => word.endsWith(value)))
+    // println(" \n after \n")
+    // println(result)
   }
 
 
@@ -140,5 +177,5 @@ object Main extends App {
 
 }
 
-case class youTubeDTO(videoId: String, dirtySubtitles: String, plainSubtitles: String, wikipediaDetails: List[wikipediaDTO])
-case class wikipediaDTO(article: String, title: String, link: String)
+case class YouTubeDTO(videoId: String, dirtySubtitles: String, plainSubtitles: String, wikipediaDetails: List[WikipediaDTO])
+case class WikipediaDTO(article: String, title: String, link: String)

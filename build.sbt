@@ -34,7 +34,9 @@ libraryDependencies ++= Seq(
     "com.typesafe.akka" %% "akka-stream" % AkkaVersion,
     "com.typesafe.akka" %% "akka-http" % AkkaHttpVersion,
     "com.lightbend.akka" %% "akka-stream-alpakka-xml" % "2.0.2",
-    "com.lihaoyi" %% "os-lib" % "0.7.3"
+    "com.lihaoyi" %% "os-lib" % "0.7.3",
+    "edu.stanford.nlp" % "stanford-corenlp" % "4.0.0",
+    "edu.stanford.nlp" % "stanford-corenlp" % "4.0.0" classifier("models")
 )
 // Here, `libraryDependencies` is a set of dependencies, and by using `+=`,
 // we're adding the scala-parser-combinators dependency to the set of dependencies
