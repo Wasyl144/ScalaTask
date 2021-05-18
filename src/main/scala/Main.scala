@@ -84,9 +84,9 @@ object Main extends App {
    * Now im creating a HttpClient to get the YouTube Captions
    */
 
-  def sendRequest(videoId: String): Future[String] = {
-    val youTubeRequest = HttpRequest(GET, uri = URL + "v=" + videoId + SUBTITLE_FORMAT)
-    println(URL + "v=" + videoId)
+  def sendRequest(idVideo: String): Future[String] = {
+    val youTubeRequest = HttpRequest(GET, uri = URL + "v=" + idVideo + SUBTITLE_FORMAT)
+    println(URL + "v=" + idVideo)
     val responseFuture = Http().singleRequest(youTubeRequest)
     val entityFuture: Future[HttpEntity.Strict] =
       responseFuture.flatMap(res => {
@@ -111,12 +111,12 @@ object Main extends App {
     */
   readFile.onComplete({
     case Success(file) => {
-      file.foreach(value => {
-        sendRequest(value).onComplete({
-          case Success(value) => {
+      file.foreach(idVideo => {
+        sendRequest(idVideo).onComplete({
+          case Success(response) => {
             // println(XML.loadString(value).text)
-            println(value)
-            filterWords(XML.loadString(value).text)
+            println(response)
+            filterWords(XML.loadString(response).text)
           }
           case Failure(exception) => println(exception.getMessage())
         })
@@ -132,7 +132,7 @@ object Main extends App {
 
   val verbFilter: List[String] = List("ing", "ed", "for", "this", "at", "the")
 
-  def filterWords (text: String) = {
+  def filterWords (text: String): Set[String] = {
     println("before \n")
     // println(text)
 
@@ -150,12 +150,11 @@ object Main extends App {
     println("pipe")
     
 
-    val nouns = document.sentences().asScala.flatMap(word => {
-      word.tokens().asScala.filter(value => {
-        if (value.tag().contains("NN")) true
-        else false
+    val nouns: Set[String] = document.sentences().asScala.flatMap(text => {
+      text.tokens().asScala.filter(word => {
+        word.tag().contains("NN") && text.posTags() != null
       })
-    })
+    }).map(value => value.originalText()).toSet
 
     println("\n\n\n\n\n")
 
@@ -163,17 +162,8 @@ object Main extends App {
       println(value)
     })
 
-
-    // println(text)
-    // val result = text.split(" ").toList.filter(word => verbFilter.map(filter => word.endsWith(filter)))
-    // result.map(word => verbFilter.map(value => word.endsWith(value)))
-    // println(" \n after \n")
-    // println(result)
+    nouns
   }
-
-
-  // println(testObject.get_videoId)
-  // println(testObject.get_captionsDirty())
 
 }
 
