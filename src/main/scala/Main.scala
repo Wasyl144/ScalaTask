@@ -80,15 +80,6 @@ object Main extends App {
   // Type your filename, this will take a file from the resources folder
   val FILE_NAME: String = "test.txt"
 
-  // You can choose any language of transcription if you want
-  val LANG: String = "lang=en&"
-
-  // Initialize YouTube timedtext API URL with params
-  val URL: String = "https://www.youtube.com/api/timedtext?" + LANG
-
-  // Param neede to better text format
-  val SUBTITLE_FORMAT = "&fmt=srv3"
-
   // Init akka.actors
   implicit val system = ActorSystem()
 
@@ -99,38 +90,54 @@ object Main extends App {
     * YouTube Videos
     */
 
-  val readFile: Future[Set[String]] = Future {
-    val file = Source.fromResource(FILE_NAME).getLines()
-    val youTubeVideoRegex =
-      raw"^((?:https?:)?\/\/)?((?:www|m)\.)?((?:youtube\.com|youtu.be))(\/(?:[\w\-]+\?v=|embed\/|v\/)?)([\w\-]+)(\S+)?".r
-    file
-      .filter((value) => {
-        value match {
-          case youTubeVideoRegex(_*) => {
-            println("DEBUG: " + value + " its legit yt link")
-            true
-          }
-          case _ => {
-            println("DEBUG: Its not a YouTube legit link")
-            false
-          }
-        }
-      })
-      .map((value) => {
-        youTubeVideoRegex
-          .replaceAllIn(value, matchedString => matchedString.group(5))
-      })
-      .toSet
-  }
+  
+    // TESTING WIKIPEDIA
+
+  // val readFile: Future[Set[String]] = Future {
+  //   val file = Source.fromResource(FILE_NAME).getLines()
+  //   val youTubeVideoRegex =
+  //     raw"^((?:https?:)?\/\/)?((?:www|m)\.)?((?:youtube\.com|youtu.be))(\/(?:[\w\-]+\?v=|embed\/|v\/)?)([\w\-]+)(\S+)?".r
+  //   file
+  //     .filter((value) => {
+  //       value match {
+  //         case youTubeVideoRegex(_*) => {
+  //           println("DEBUG: " + value + " its legit yt link")
+  //           true
+  //         }
+  //         case _ => {
+  //           println("DEBUG: Its not a YouTube legit link")
+  //           false
+  //         }
+  //       }
+  //     })
+  //     .map((value) => {
+  //       youTubeVideoRegex
+  //         .replaceAllIn(value, matchedString => matchedString.group(5))
+  //     })
+  //     .toSet
+  // }
+
+
+
+
 
   /*
    * Now im creating a HttpClient to get the YouTube Captions
    */
 
-  def sendRequest(videoId: String): Future[String] = {
-    val youTubeRequest = HttpRequest(GET, uri = URL + "v=" + videoId + SUBTITLE_FORMAT)
+  def sendYouTubeRequest(videoId: String): Future[String] = {
+    // You can choose any language of transcription if you want
+    val LANG: String = "lang=en&"
+
+    // Initialize YouTube timedtext API URL with params
+    val URL: String = "https://www.youtube.com/api/timedtext?" + LANG
+
+    // Param neede to better text format
+    val SUBTITLE_FORMAT = "&fmt=srv3"
+
+    val request = HttpRequest(GET, uri = URL + "v=" + videoId + SUBTITLE_FORMAT)
     println(URL + "v=" + videoId)
-    val responseFuture = Http().singleRequest(youTubeRequest)
+    val responseFuture = Http().singleRequest(request)
     val entityFuture: Future[HttpEntity.Strict] =
       responseFuture.flatMap(res => {
         println(res.headers)
@@ -138,6 +145,37 @@ object Main extends App {
       })
     entityFuture.map(entity => entity.data.utf8String)
   }
+
+
+  def sendWikipediaRequest(word: String): Future[String] = {
+
+    // You can choose a language
+    val LANG: String = "en"
+
+    // Init wikipedia RESTAPI URL
+    val URL: String = "https://" + LANG + ".wikipedia.org/api/rest_v1/page/summary/"
+    
+    val QUERY: String = "?redirect=false"
+
+    val request = HttpRequest(GET, uri = URL + word + QUERY)
+
+    val responseFuture = Http().singleRequest(request)
+
+
+    // TODO: Wikipedia api gives me a 301 status code
+    // need to fix redirect
+    val entityFuture: Future[HttpEntity.Strict] = responseFuture.flatMap(res => {
+      println(res)
+      res.entity.toStrict(3.seconds)
+    })
+    entityFuture.map(entity => entity.data.utf8String)
+
+  }
+
+  sendWikipediaRequest("gallon").onComplete({
+    case Success(value) => println(value)
+    case Failure(exception) => exception.getMessage()
+  })
 
 
 
@@ -152,13 +190,19 @@ object Main extends App {
     * I'm catching a set of ids and im sending request one by one to youtube server
     *
     */
+
+  /* TESTING WIKIPEDIA
+
   readFile.onComplete({
     case Success(file) => {
       file.foreach(videoId => {
-        sendRequest(videoId).onComplete({
+        sendYouTubeRequest(videoId).onComplete({
           case Success(response) => {
             println(response)
-            NLPFilter.filter(XML.loadString(response).text)
+            val nouns = NLPFilter.filter(XML.loadString(response).text)
+            nouns.foreach(noun => {
+              
+            })
           }
           case Failure(exception) => println(exception.getMessage())
         })
@@ -172,4 +216,5 @@ object Main extends App {
     }
   })
 
+  */
 }
