@@ -27,12 +27,55 @@ import edu.stanford.nlp.semgraph._
 import edu.stanford.nlp.trees._
 import java.{util => ju}
 
+
+case class YouTubeVideo(videoId: String, dirtySubtitles: String, plainSubtitles: String, wikipediaDetails: List[WikipediaArticles])
+case class WikipediaArticles(article: String, title: String, link: String)
+
+trait NounFilter {
+  def filter (text: String): Set[String]
+}
+
+object NLPFilter extends NounFilter {
+  def filter (text: String): Set[String] = {
+    println("before \n")
+    // println(text)
+
+    val props: ju.Properties = new ju.Properties
+    props.setProperty("annotators", "tokenize,ssplit,pos,parse")
+    props.setProperty("coref.algorithm", "neural")
+
+    val pipeline: StanfordCoreNLP = new StanfordCoreNLP(props)
+
+    val document: CoreDocument = new CoreDocument(text)
+
+    println("document")
+
+    pipeline.annotate(document)
+    println("pipe")
+    
+
+    val nouns: Set[String] = document.sentences().asScala.flatMap(text => {
+      text.tokens().asScala.filter(word => {
+        word.tag().contains("NN") && text.posTags() != null
+      })
+    }).map(filteredNoun => filteredNoun.originalText()).toSet
+
+    println("\n\n\n\n\n")
+
+    nouns.foreach(value => {
+      println(value)
+    })
+
+    nouns
+  }
+}
+
 object Main extends App {
 
   /** Initialize values to use in prgram
     */
 
-  // TODO: Maybe change the input file to get a path from console
+  // DEV: Maybe change the input file to get a path from console
 
   // Type your filename, this will take a file from the resources folder
   val FILE_NAME: String = "test.txt"
@@ -84,9 +127,9 @@ object Main extends App {
    * Now im creating a HttpClient to get the YouTube Captions
    */
 
-  def sendRequest(idVideo: String): Future[String] = {
-    val youTubeRequest = HttpRequest(GET, uri = URL + "v=" + idVideo + SUBTITLE_FORMAT)
-    println(URL + "v=" + idVideo)
+  def sendRequest(videoId: String): Future[String] = {
+    val youTubeRequest = HttpRequest(GET, uri = URL + "v=" + videoId + SUBTITLE_FORMAT)
+    println(URL + "v=" + videoId)
     val responseFuture = Http().singleRequest(youTubeRequest)
     val entityFuture: Future[HttpEntity.Strict] =
       responseFuture.flatMap(res => {
@@ -106,17 +149,16 @@ object Main extends App {
 
 
   /**
-    * i'm catching a set of ids and im sending request one by one to youtube server
+    * I'm catching a set of ids and im sending request one by one to youtube server
     *
     */
   readFile.onComplete({
     case Success(file) => {
-      file.foreach(idVideo => {
-        sendRequest(idVideo).onComplete({
+      file.foreach(videoId => {
+        sendRequest(videoId).onComplete({
           case Success(response) => {
-            // println(XML.loadString(value).text)
             println(response)
-            filterWords(XML.loadString(response).text)
+            NLPFilter.filter(XML.loadString(response).text)
           }
           case Failure(exception) => println(exception.getMessage())
         })
@@ -130,42 +172,4 @@ object Main extends App {
     }
   })
 
-  val verbFilter: List[String] = List("ing", "ed", "for", "this", "at", "the")
-
-  def filterWords (text: String): Set[String] = {
-    println("before \n")
-    // println(text)
-
-    val props: ju.Properties = new ju.Properties
-    props.setProperty("annotators", "tokenize,ssplit,pos,parse")
-    props.setProperty("coref.algorithm", "neural")
-
-    val pipeline: StanfordCoreNLP = new StanfordCoreNLP(props)
-
-    val document: CoreDocument = new CoreDocument(text)
-
-    println("document")
-
-    pipeline.annotate(document)
-    println("pipe")
-    
-
-    val nouns: Set[String] = document.sentences().asScala.flatMap(text => {
-      text.tokens().asScala.filter(word => {
-        word.tag().contains("NN") && text.posTags() != null
-      })
-    }).map(value => value.originalText()).toSet
-
-    println("\n\n\n\n\n")
-
-    nouns.foreach(value => {
-      println(value)
-    })
-
-    nouns
-  }
-
 }
-
-case class YouTubeDTO(videoId: String, dirtySubtitles: String, plainSubtitles: String, wikipediaDetails: List[WikipediaDTO])
-case class WikipediaDTO(article: String, title: String, link: String)
