@@ -23,6 +23,7 @@ version := "1.0"
 
 val AkkaVersion = "2.6.8"
 val AkkaHttpVersion = "10.2.4"
+val circeVersion = "0.13.0"
 
 // Want to use a published library in your project?
 // You can define other libraries as dependencies in your build like this:
@@ -33,7 +34,9 @@ libraryDependencies ++= Seq(
     "com.typesafe.akka" %% "akka-actor-typed" % AkkaVersion,
     "com.typesafe.akka" %% "akka-stream" % AkkaVersion,
     "com.typesafe.akka" %% "akka-http" % AkkaHttpVersion,
-    "com.lightbend.akka" %% "akka-stream-alpakka-xml" % "2.0.2",
+    "io.circe" %% "circe-core" % circeVersion,
+    "io.circe" %% "circe-parser" % circeVersion,
+    "io.circe" %% "circe-optics" % circeVersion,
     "com.lihaoyi" %% "os-lib" % "0.7.3",
     "edu.stanford.nlp" % "stanford-corenlp" % "4.0.0",
     "edu.stanford.nlp" % "stanford-corenlp" % "4.0.0" classifier("models")

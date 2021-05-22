@@ -10,12 +10,8 @@ import akka.actor.ActorSystem
 import akka.stream.ActorMaterializer
 import scala.concurrent.duration._
 import scala.concurrent.ExecutionContext.Implicits.global
-// import akka.stream.alpakka.xml.scaladsl
 import akka.stream.scaladsl.Flow
 import akka.util.ByteString
-// import akka.stream.alpakka.xml.scaladsl.XmlParsing
-import akka.stream.scaladsl.Sink
-import akka.stream.scaladsl.Keep
 import scala.util.Success
 import scala.util.Failure
 import scala.concurrent.Await
@@ -26,17 +22,25 @@ import edu.stanford.nlp.pipeline._
 import edu.stanford.nlp.semgraph._
 import edu.stanford.nlp.trees._
 import java.{util => ju}
+// import spray.json._
+import scala.util.parsing.json.JSON
+import io.circe._, io.circe.parser._
+import io.circe.optics.JsonPath._
 
-
-case class YouTubeVideo(videoId: String, dirtySubtitles: String, plainSubtitles: String, wikipediaDetails: List[WikipediaArticles])
+case class YouTubeVideo(
+    videoId: String,
+    dirtySubtitles: String,
+    plainSubtitles: String,
+    wikipediaDetails: List[WikipediaArticles]
+)
 case class WikipediaArticles(article: String, title: String, link: String)
 
 trait NounFilter {
-  def filter (text: String): Set[String]
+  def filter(text: String): Set[String]
 }
 
 object NLPFilter extends NounFilter {
-  def filter (text: String): Set[String] = {
+  def filter(text: String): Set[String] = {
     println("before \n")
     // println(text)
 
@@ -52,13 +56,20 @@ object NLPFilter extends NounFilter {
 
     pipeline.annotate(document)
     println("pipe")
-    
 
-    val nouns: Set[String] = document.sentences().asScala.flatMap(text => {
-      text.tokens().asScala.filter(word => {
-        word.tag().contains("NN") && text.posTags() != null
+    val nouns: Set[String] = document
+      .sentences()
+      .asScala
+      .flatMap(text => {
+        text
+          .tokens()
+          .asScala
+          .filter(word => {
+            word.tag().contains("NN") && text.posTags() != null
+          })
       })
-    }).map(filteredNoun => filteredNoun.originalText()).toSet
+      .map(filteredNoun => filteredNoun.originalText())
+      .toSet
 
     println("\n\n\n\n\n")
 
@@ -90,36 +101,29 @@ object Main extends App {
     * YouTube Videos
     */
 
-  
-    // TESTING WIKIPEDIA
-
-  // val readFile: Future[Set[String]] = Future {
-  //   val file = Source.fromResource(FILE_NAME).getLines()
-  //   val youTubeVideoRegex =
-  //     raw"^((?:https?:)?\/\/)?((?:www|m)\.)?((?:youtube\.com|youtu.be))(\/(?:[\w\-]+\?v=|embed\/|v\/)?)([\w\-]+)(\S+)?".r
-  //   file
-  //     .filter((value) => {
-  //       value match {
-  //         case youTubeVideoRegex(_*) => {
-  //           println("DEBUG: " + value + " its legit yt link")
-  //           true
-  //         }
-  //         case _ => {
-  //           println("DEBUG: Its not a YouTube legit link")
-  //           false
-  //         }
-  //       }
-  //     })
-  //     .map((value) => {
-  //       youTubeVideoRegex
-  //         .replaceAllIn(value, matchedString => matchedString.group(5))
-  //     })
-  //     .toSet
-  // }
-
-
-
-
+  val readFile: Future[Set[String]] = Future {
+    val file = Source.fromResource(FILE_NAME).getLines()
+    val youTubeVideoRegex =
+      raw"^((?:https?:)?\/\/)?((?:www|m)\.)?((?:youtube\.com|youtu.be))(\/(?:[\w\-]+\?v=|embed\/|v\/)?)([\w\-]+)(\S+)?".r
+    file
+      .filter((value) => {
+        value match {
+          case youTubeVideoRegex(_*) => {
+            println("DEBUG: " + value + " its legit yt link")
+            true
+          }
+          case _ => {
+            println("DEBUG: Its not a YouTube legit link")
+            false
+          }
+        }
+      })
+      .map((value) => {
+        youTubeVideoRegex
+          .replaceAllIn(value, matchedString => matchedString.group(5))
+      })
+      .toSet
+  }
 
   /*
    * Now im creating a HttpClient to get the YouTube Captions
@@ -146,38 +150,32 @@ object Main extends App {
     entityFuture.map(entity => entity.data.utf8String)
   }
 
-
-  def sendWikipediaRequest(word: String): Future[String] = {
+  def sendWikipediaRequest(word: String) = {
 
     // You can choose a language
     val LANG: String = "en"
 
     // Init wikipedia RESTAPI URL
-    val URL: String = "https://" + LANG + ".wikipedia.org/api/rest_v1/page/summary/"
-    
-    val QUERY: String = "?redirect=false"
+    val URL: String =
+      "https://" + LANG + ".wikipedia.org/api/rest_v1/page/summary/"
 
-    val request = HttpRequest(GET, uri = URL + word + QUERY)
+    val simpleClient = Http().singleRequest(_: HttpRequest)
 
-    val responseFuture = Http().singleRequest(request)
+    val redirectingClient = WikiHttpClient.httpClientWithRedirect(simpleClient)
 
+    val request = HttpRequest(GET, uri = URL + word)
 
-    // TODO: Wikipedia api gives me a 301 status code
-    // need to fix redirect
-    val entityFuture: Future[HttpEntity.Strict] = responseFuture.flatMap(res => {
-      println(res)
-      res.entity.toStrict(3.seconds)
-    })
+    val entityFuture: Future[HttpEntity.Strict] =
+      redirectingClient(request).flatMap(res => {
+        res.entity.toStrict(3.seconds)
+      })
     entityFuture.map(entity => entity.data.utf8String)
-
   }
 
-  sendWikipediaRequest("gallon").onComplete({
-    case Success(value) => println(value)
-    case Failure(exception) => exception.getMessage()
-  })
-
-
+  // .onComplete({
+  //   case Success(value) => println(value)
+  //   case Failure(exception) => exception.getMessage()
+  // })
 
   // TODO: Refactor this code now is only for test purposes
 
@@ -185,23 +183,56 @@ object Main extends App {
 
   // DEV: Maybe create a microservice to store data, from requests
 
-
-  /**
-    * I'm catching a set of ids and im sending request one by one to youtube server
-    *
+  /** I'm catching a set of ids and im sending request one by one to youtube server
     */
-
-  /* TESTING WIKIPEDIA
 
   readFile.onComplete({
     case Success(file) => {
       file.foreach(videoId => {
         sendYouTubeRequest(videoId).onComplete({
           case Success(response) => {
-            println(response)
-            val nouns = NLPFilter.filter(XML.loadString(response).text)
+            val dirtyText = response;
+            val plainText = XML.loadString(dirtyText).text.strip()
+            println(dirtyText + "\n")
+            println(plainText + "\n")
+            val nouns = NLPFilter.filter(plainText)
             nouns.foreach(noun => {
-              
+              sendWikipediaRequest(noun).onComplete(
+                {
+                  case Success(response) => {
+                    parse(response) match {
+                      case Left(failure) =>
+                        println("This is not a JSON format response")
+                      case Right(json) => {
+                        val wikiArticlePlain =
+                          root.extract.string.getOption(json) match {
+                            case Some(value) => value
+                            case None        => Vector.empty
+                          }
+                        val wikiArticleDirty =
+                          root.extract_html.string.getOption(json) match {
+                            case Some(value) => value
+                            case None        => Vector.empty
+                          }
+                        val wikiLink =
+                          root.content_urls.desktop.page.string.getOption(json) match {
+                            case Some(value) => value
+                            case None        => Vector.empty
+                          }
+                        println(videoId + "\n")
+                        println(noun + "\n")
+                        // println(XML.loadString(response).text + "\n")
+                        println(wikiLink + "\n")
+                        println(wikiArticleDirty + "\n")
+                        println(wikiArticlePlain + "\n")
+                      }
+                    }
+                  }
+                  case Failure(exception) => {
+                    println(exception.getMessage())
+                  }
+                }
+              )
             })
           }
           case Failure(exception) => println(exception.getMessage())
@@ -216,5 +247,4 @@ object Main extends App {
     }
   })
 
-  */
 }
