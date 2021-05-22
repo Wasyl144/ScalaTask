@@ -172,11 +172,6 @@ object Main extends App {
     entityFuture.map(entity => entity.data.utf8String)
   }
 
-  // .onComplete({
-  //   case Success(value) => println(value)
-  //   case Failure(exception) => exception.getMessage()
-  // })
-
   // TODO: Refactor this code now is only for test purposes
 
   // TODO: Create an Object to store data.
@@ -185,17 +180,21 @@ object Main extends App {
 
   /** I'm catching a set of ids and im sending request one by one to youtube server
     */
+  
+  // TODO: Refactor code
+
+  // TODO: Serilaize response and push reult to json
 
   readFile.onComplete({
     case Success(file) => {
       file.foreach(videoId => {
         sendYouTubeRequest(videoId).onComplete({
           case Success(response) => {
-            val dirtyText = response;
-            val plainText = XML.loadString(dirtyText).text.strip()
-            println(dirtyText + "\n")
-            println(plainText + "\n")
-            val nouns = NLPFilter.filter(plainText)
+            val ytDirtyText = response;
+            val ytPlainText = XML.loadString(ytDirtyText).text.strip()
+            val nouns = NLPFilter.filter(ytPlainText)
+            println("YT Video ID: " + videoId + "\n")
+            println("YT Subtitles: " + ytPlainText + "\n")
             nouns.foreach(noun => {
               sendWikipediaRequest(noun).onComplete(
                 {
@@ -219,12 +218,11 @@ object Main extends App {
                             case Some(value) => value
                             case None        => Vector.empty
                           }
-                        println(videoId + "\n")
-                        println(noun + "\n")
+                        println("Noun: " + noun + "\n")
                         // println(XML.loadString(response).text + "\n")
-                        println(wikiLink + "\n")
-                        println(wikiArticleDirty + "\n")
-                        println(wikiArticlePlain + "\n")
+                        println("Link to Wikipedia: " + wikiLink + "\n")
+                        println("Wiki article(dirty): " + wikiArticleDirty + "\n")
+                        println("Wiki article(plaintext): " + wikiArticlePlain + "\n")
                       }
                     }
                   }
