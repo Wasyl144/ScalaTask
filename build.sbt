@@ -24,6 +24,7 @@ version := "1.0"
 val AkkaVersion = "2.6.8"
 val AkkaHttpVersion = "10.2.4"
 val circeVersion = "0.13.0"
+val slf4jVersion = "1.7.5"
 
 // Want to use a published library in your project?
 // You can define other libraries as dependencies in your build like this:
@@ -37,9 +38,12 @@ libraryDependencies ++= Seq(
     "io.circe" %% "circe-core" % circeVersion,
     "io.circe" %% "circe-parser" % circeVersion,
     "io.circe" %% "circe-optics" % circeVersion,
+    "io.circe" %% "circe-generic" % circeVersion,
     "com.lihaoyi" %% "os-lib" % "0.7.3",
     "edu.stanford.nlp" % "stanford-corenlp" % "4.0.0",
-    "edu.stanford.nlp" % "stanford-corenlp" % "4.0.0" classifier("models")
+    "edu.stanford.nlp" % "stanford-corenlp" % "4.0.0" classifier("models"),
+    "org.slf4j" % "slf4j-api" % slf4jVersion,
+    "org.slf4j" % "slf4j-simple" % slf4jVersion
 )
 // Here, `libraryDependencies` is a set of dependencies, and by using `+=`,
 // we're adding the scala-parser-combinators dependency to the set of dependencies

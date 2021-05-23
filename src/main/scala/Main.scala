@@ -25,7 +25,10 @@ import java.{util => ju}
 // import spray.json._
 import scala.util.parsing.json.JSON
 import io.circe._, io.circe.parser._
+import io.circe.syntax._
 import io.circe.optics.JsonPath._
+import io.circe.generic.auto._
+import io.circe.generic.JsonCodec
 
 case class YouTubeVideo(
     videoId: String,
@@ -33,7 +36,7 @@ case class YouTubeVideo(
     plainSubtitles: String,
     wikipediaDetails: List[WikipediaArticles]
 )
-case class WikipediaArticles(article: String, title: String, link: String)
+case class WikipediaArticles(dirtyArticle: String, plainArticle: String, link: String)
 
 trait NounFilter {
   def filter(text: String): Set[String]
@@ -150,7 +153,7 @@ object Main extends App {
     entityFuture.map(entity => entity.data.utf8String)
   }
 
-  def sendWikipediaRequest(word: String) = {
+  def sendWikipediaRequest(word: String): Future[String] = {
 
     // You can choose a language
     val LANG: String = "en"
@@ -180,7 +183,7 @@ object Main extends App {
 
   /** I'm catching a set of ids and im sending request one by one to youtube server
     */
-  
+
   // TODO: Refactor code
 
   // TODO: Serilaize response and push reult to json
@@ -195,43 +198,70 @@ object Main extends App {
             val nouns = NLPFilter.filter(ytPlainText)
             println("YT Video ID: " + videoId + "\n")
             println("YT Subtitles: " + ytPlainText + "\n")
-            nouns.foreach(noun => {
-              sendWikipediaRequest(noun).onComplete(
-                {
-                  case Success(response) => {
-                    parse(response) match {
-                      case Left(failure) =>
-                        println("This is not a JSON format response")
-                      case Right(json) => {
-                        val wikiArticlePlain =
-                          root.extract.string.getOption(json) match {
-                            case Some(value) => value
-                            case None        => Vector.empty
-                          }
-                        val wikiArticleDirty =
-                          root.extract_html.string.getOption(json) match {
-                            case Some(value) => value
-                            case None        => Vector.empty
-                          }
-                        val wikiLink =
-                          root.content_urls.desktop.page.string.getOption(json) match {
-                            case Some(value) => value
-                            case None        => Vector.empty
-                          }
-                        println("Noun: " + noun + "\n")
-                        // println(XML.loadString(response).text + "\n")
-                        println("Link to Wikipedia: " + wikiLink + "\n")
-                        println("Wiki article(dirty): " + wikiArticleDirty + "\n")
-                        println("Wiki article(plaintext): " + wikiArticlePlain + "\n")
-                      }
-                    }
-                  }
+            val getList = nouns
+              .map(noun => {
+                Await
+                  .ready(sendWikipediaRequest(noun), Duration.Inf)
+                  .value
+                  .get match {
+                  case Success(wikiResp) => wikiResp
                   case Failure(exception) => {
                     println(exception.getMessage())
+                    false
+                  }
+
+                }
+              })
+              .toList
+              .filter(jsonWiki => {
+                parse(jsonWiki.toString()) match {
+                  case Left(failure) => {
+                    println("This is not a JSON format response")
+                    false
+                  }
+                  case Right(json) => {
+                    true
                   }
                 }
-              )
-            })
+              })
+              .map(jsonFiltered => {
+                parse(jsonFiltered.toString()) match {
+                  case Right(json) => {
+                    val wikiArticlePlain =
+                      root.extract.string.getOption(json) match {
+                        case Some(value) => value
+                        case None        => Vector.empty
+                      }
+                    val wikiArticleDirty =
+                      root.extract_html.string.getOption(json) match {
+                        case Some(value) => value
+                        case None        => Vector.empty
+                      }
+                    val wikiLink =
+                      root.content_urls.desktop.page.string
+                        .getOption(json) match {
+                        case Some(value) => value
+                        case None        => Vector.empty
+                      }
+                    // println(XML.loadString(response).text + "\n")
+                    // println("Link to Wikipedia: " + wikiLink + "\n")
+                    // println("Wiki article(dirty): " + wikiArticleDirty + "\n")
+                    // println(
+                    //   "Wiki article(plaintext): " + wikiArticlePlain + "\n"
+                    // )
+                    new WikipediaArticles(
+                      wikiArticleDirty.toString(),
+                      wikiArticlePlain.toString(),
+                      wikiLink.toString()
+                    )
+                  }
+                }
+
+              })
+              println(getList)
+              val result = new YouTubeVideo(videoId, ytDirtyText, ytPlainText, getList)
+              os.write(os.pwd/"data.json", result.asJson.noSpaces.toString())
+
           }
           case Failure(exception) => println(exception.getMessage())
         })
