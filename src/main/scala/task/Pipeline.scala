@@ -24,13 +24,12 @@ import edu.stanford.nlp.pipeline._
 import edu.stanford.nlp.semgraph._
 import edu.stanford.nlp.trees._
 import java.{util => ju}
-// import spray.json._
 import scala.util.parsing.json.JSON
 import io.circe._, io.circe.parser._
 import io.circe.syntax._
 import io.circe.optics.JsonPath._
 import io.circe.generic.auto._
-import io.circe.generic.JsonCodec
+
 
 import scala.util.{Failure, Success, Try}
 import akka.stream.Materializer
@@ -38,18 +37,77 @@ import scala.language.{implicitConversions, postfixOps}
 
 object Pipeline {
 
-  def boot(config: MyConfig, path: String)(implicit materializer: Materializer, system: ActorSystem) = {
-    val videos =
-      Future.sequence(videoIdsFromFile(path).map(sendYouTubeRequest(_, config.lang)))
-    val result = Await.result(videos, Duration.Inf)
-    val plainSubtitles = Future.sequence(result.map(subtitles => {
-      val sub = XML.loadString(subtitles).text
-      NLPFilter.filter(sub)
-    }))
-    val subtitlesResult = Await.result(plainSubtitles, Duration.Inf)
+  def boot(config: MyConfig, path: String)(implicit
+      materializer: Materializer,
+      system: ActorSystem
+  ) = {
+    val videosFuture =
+      Future.sequence(videoIdsFromFile(path).map(vidId => {
+        sendYouTubeRequest(vidId, config.lang).map(response =>
+          YTResponse(vidId, response)
+        )
+      }))
+    val videos = Await
+      .result(videosFuture, Duration.Inf)
+      .map(ytRes => {
+        YTReady(
+          ytRes.id,
+          ytRes.source,
+          XML.loadString(ytRes.source).text.strip()
+        )
+      })
+    val nounsFuture: Future[Set[YTWithNouns]] =
+      Future.sequence(videos.map(youtubeData => {
+        NLPFilter
+          .filter(youtubeData.plainText)
+          .map(
+            YTWithNouns(
+              youtubeData.id,
+              youtubeData.source,
+              youtubeData.plainText,
+              _
+            )
+          )
 
-    println(result)
-    println(subtitlesResult)
+      }))
+    val nouns: Set[YTWithNouns] = Await.result(nounsFuture, Duration.Inf)
+
+    val wikipediaArticlesFuture = nouns.map(youtubeVideo => {
+        val wikiArts = Future.sequence(youtubeVideo.list.map(noun => {
+          sendWikipediaRequest(noun, config.lang)
+            .map(response => {
+              parse(response) match {
+                case Left(json)  => None
+                case Right(json) => Some(json)
+              }
+            })
+            .map(jsonRes => {
+              val json = jsonRes.get
+              val wikiArticlePlain =
+                root.extract.string.getOption(json) match {
+                  case Some(value) => Some(value)
+                  case None        => None
+                }
+              val wikiArticle =
+                root.extract_html.string.getOption(json) match {
+                  case Some(value) => Some(value)
+                  case None        => None
+                }
+              val wikiLink =
+                root.content_urls.desktop.page.string
+                  .getOption(json) match {
+                  case Some(value) => Some(value)
+                  case None        => None
+                }
+              WikipediaArticles(wikiArticle.get, wikiArticlePlain.get, wikiLink.get)
+            })
+        }))
+        val result = Await.result(wikiArts, Duration.Inf)
+        YouTubeVideo(youtubeVideo id, youtubeVideo source, youtubeVideo.plainText, result.toList)
+      })
+
+    os.write(os.pwd/"data.json", wikipediaArticlesFuture.asJson.noSpaces)
+
   }
 
   /** ReadFile codeblock is used to return set of id's
@@ -84,7 +142,10 @@ object Pipeline {
    * Now im creating a HttpClient to get the YouTube Captions
    */
 
-  def sendYouTubeRequest(videoId: String, lng: String)(implicit materializer: Materializer, system: ActorSystem): Future[String] = {
+  def sendYouTubeRequest(videoId: String, lng: String)(implicit
+      materializer: Materializer,
+      system: ActorSystem
+  ): Future[String] = {
     // You can choose any language of transcription if you want
     val LANG: String = s"lang=$lng&"
 
@@ -105,8 +166,10 @@ object Pipeline {
     entityFuture.map(entity => entity.data.utf8String)
   }
 
-  def sendWikipediaRequest(word: String, lng: String)(implicit materializer: Materializer, system: ActorSystem): Future[String] = {
-
+  def sendWikipediaRequest(word: String, lng: String)(implicit
+      materializer: Materializer,
+      system: ActorSystem
+  ): Future[String] = {
 
     // Init wikipedia RESTAPI URL
     val URL: String =
@@ -114,7 +177,8 @@ object Pipeline {
 
     val simpleClient = Http().singleRequest(_: HttpRequest)
 
-    val redirectingClient = WikiHttpClient.httpClientWithRedirect(simpleClient,lng)
+    val redirectingClient =
+      WikiHttpClient.httpClientWithRedirect(simpleClient, lng)
 
     val request = HttpRequest(GET, uri = URL + word)
 
