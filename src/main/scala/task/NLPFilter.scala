@@ -10,11 +10,12 @@ import edu.stanford.nlp.semgraph._
 import edu.stanford.nlp.trees._
 import java.{util => ju}
 import collection.JavaConverters._
+import org.slf4j.LoggerFactory
 
 object NLPFilter extends NounFilter {
+  val logger = LoggerFactory.getLogger(getClass().getSimpleName())
   def filter(text: String): Future[Set[String]] = Future {
-    println("before \n")
-    // println(text)
+    logger info("Finding nouns")
 
     val props: ju.Properties = new ju.Properties
     props.setProperty("annotators", "tokenize,ssplit,pos,parse")
@@ -24,11 +25,8 @@ object NLPFilter extends NounFilter {
 
     val document: CoreDocument = new CoreDocument(text)
 
-    println("document")
-
     pipeline.annotate(document)
-    println("pipe")
-
+    
     val nouns: Set[String] = document
       .sentences()
       .asScala

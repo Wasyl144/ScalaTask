@@ -3,8 +3,11 @@ package task
 import akka.actor.ActorSystem
 import akka.stream.ActorMaterializer
 import com.typesafe.config.ConfigFactory
+import org.slf4j.LoggerFactory
 
 object Main extends App{
+  val logger = LoggerFactory.getLogger(getClass().getSimpleName())
+
   // Init akka.actors
   implicit val system = ActorSystem("Task")
 
@@ -17,7 +20,7 @@ object Main extends App{
   try {
     args match {
       case arr if arr.length != 1 =>
-        println(f"Usage: run [input file]")
+        logger error(f"Usage: run [input file]")
         ()
       case arr =>{
         val cfg = MyConfig(config.getString("app.LANG"))
@@ -25,6 +28,6 @@ object Main extends App{
       }
     }
   } catch {
-    case e: Exception => println(e)
+    case e: Exception => logger error (e.getMessage())
   }
 }

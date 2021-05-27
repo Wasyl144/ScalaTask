@@ -33,8 +33,11 @@ import io.circe.generic.auto._
 import scala.util.{Failure, Success, Try}
 import akka.stream.Materializer
 import scala.language.{implicitConversions, postfixOps}
+import org.slf4j.LoggerFactory
 
 object Pipeline {
+
+  val logger = LoggerFactory.getLogger(getClass().getSimpleName())
 
   def boot(config: MyConfig, path: String)(implicit
       materializer: Materializer,
@@ -69,16 +72,12 @@ object Pipeline {
           )
         } catch {
           case e: Exception => {
-            println(e.getMessage())
+            logger error(e.getMessage())
             None
           }
         }
       })
       .flatten
-
-    // println("\n\n\n\n\n\n")
-    // os.write(os.pwd / "data.json", videos.asJson.noSpaces)
-    // println("\n\n\n\n\n\n")
 
     val nounsFuture: Future[Set[YTWithNouns]] =
       Future.sequence(
@@ -107,65 +106,51 @@ object Pipeline {
 
     val nouns: Set[YTWithNouns] = Await.result(nounsFuture, Duration.Inf)
 
+    logger info("Sending requests to Wikipedia")
+
     val wikipediaArticlesFuture = nouns.map(youtubeVideo => {
       val wikiArts = Future.sequence(
         youtubeVideo.list
           .map(noun => {
-            try {
-              Some(
-                sendWikipediaRequest(noun, config.lang)
+                sendWikipediaRequest(noun, config.lang).map(_
                   .map(response => {
                     parse(response) match {
                       case Left(json)  => None
                       case Right(json) => Some(json)
                     }
                   })
-                  .map(jsonRes => {
-                    val json = jsonRes.get
-                    val wikiArticlePlain =
-                      root.extract.string.getOption(json) match {
-                        case Some(value) => Some(value)
-                        case None        => None
-                      }
-                    val wikiArticle =
-                      root.extract_html.string.getOption(json) match {
-                        case Some(value) => Some(value)
-                        case None        => None
-                      }
-                    val wikiLink =
-                      root.content_urls.desktop.page.string
-                        .getOption(json) match {
-                        case Some(value) => Some(value)
-                        case None        => None
-                      }
-                    WikipediaArticles(
-                      wikiArticle.get,
-                      wikiArticlePlain.get,
-                      wikiLink.get
+                  .flatMap(jsonRes => {
+                    jsonRes.flatMap(json => {
+                      root.extract.string.getOption(json).flatMap(plainArt => {
+                        root.extract_html.string.getOption(json).flatMap(article => {
+                          root.content_urls.desktop.page.string.getOption(json).map(wikiLink => {
+                            WikipediaArticles(
+                      article,
+                      plainArt,
+                      wikiLink
                     )
+                          })
+                        })
+                      })
+                    })
                   })
               )
-            } catch {
-              case e: Exception => {
-                println(e.getMessage())
-                None
-              }
-            }
           })
-          .flatten
       )
       val result = Await.result(wikiArts, Duration.Inf)
       YouTubeVideo(
         youtubeVideo id,
         youtubeVideo source,
         youtubeVideo.plainText,
-        result.toList
+        result.flatMap(_.toList).toList
       )
     })
 
-    println("\n\n\n\n\n\n")
+    
+    logger info ("Saving result to file... \n")
     os.write(os.pwd / "data.json", wikipediaArticlesFuture.asJson.noSpaces)
-    println("\n\n\n\n\n\n")
+    logger info ("Done \n")
+    
 
   }
 
@@ -181,11 +166,11 @@ object Pipeline {
       .filter((value) => {
         value match {
           case youTubeVideoRegex(_*) => {
-            println("DEBUG: " + value + " its legit yt link")
+            logger info("DEBUG: " + value + " its legit yt link")
             true
           }
           case _ => {
-            println("DEBUG: Its not a YouTube legit link")
+            logger error("DEBUG: Its not a YouTube legit link")
             false
           }
         }
@@ -215,7 +200,7 @@ object Pipeline {
     val SUBTITLE_FORMAT = "&fmt=srv3"
 
     val request = HttpRequest(GET, uri = URL + "v=" + videoId + SUBTITLE_FORMAT)
-    println(URL + "v=" + videoId + " - sending request")
+    logger info(URL + "v=" + videoId + " - sending request")
     Thread.sleep(500)
     val responseFuture = Http().singleRequest(request)
     val entityFuture: Future[HttpEntity.Strict] =
@@ -228,7 +213,7 @@ object Pipeline {
   def sendWikipediaRequest(word: String, lng: String)(implicit
       materializer: Materializer,
       system: ActorSystem
-  ): Future[String] = {
+  ): Future[Option[String]] = {
 
     // Init wikipedia RESTAPI URL
     val URL: String =
@@ -242,11 +227,13 @@ object Pipeline {
     val request = HttpRequest(GET, uri = URL + word)
     Thread.sleep(500)
 
-    val entityFuture: Future[HttpEntity.Strict] =
+    val entityFuture: Future[Option[HttpEntity.Strict]] =
       redirectingClient(request).flatMap(res => {
-        println(res.headers)
-        res.entity.toStrict(3.seconds)
+        if (res.status == NotFound) {
+          None
+        }
+        res.entity.toStrict(3.seconds).map(Some(_))
       })
-    entityFuture.map(entity => entity.data.utf8String)
+    entityFuture.map(_.map(_.data.utf8String))
   }
 }

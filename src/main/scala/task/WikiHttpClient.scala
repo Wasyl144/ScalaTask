@@ -19,13 +19,11 @@ object WikiHttpClient {
     response.status match {
       case StatusCodes.Found | StatusCodes.MovedPermanently | StatusCodes.SeeOther ⇒ {
         val newUri = s"https://$lang.wikipedia.org/api/rest_v1/page/summary/" + response.header[Location].get.uri
-        println("DEBUG:" + newUri)
+        // println("DEBUG:" + newUri)
         response.discardEntityBytes()
 
         client(HttpRequest(method = HttpMethods.GET, uri = newUri))
       }
-
-      case StatusCodes.NotFound => throw new Exception("Article not found")
 
       case _ ⇒ Future.successful(response)
     }
