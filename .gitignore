@@ -8,3 +8,4 @@ src/main/resources/test.txt
 .scalafmt.conf
 outpot.txt
 src/main/resources/test.txt
+data.json

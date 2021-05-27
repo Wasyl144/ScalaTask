@@ -65,7 +65,7 @@ object Pipeline {
         try {
           Some(
             YTReady(
-              ytRes.id,
+              ytRes.idVideo,
               ytRes.source,
               XML.loadString(ytRes.source).text.strip()
             )
@@ -89,7 +89,7 @@ object Pipeline {
                   .filter(youtubeData.plainText)
                   .map(setOfNouns => {
                     YTWithNouns(
-                      youtubeData.id,
+                      youtubeData.idVideo,
                       youtubeData.source,
                       youtubeData.plainText,
                       setOfNouns
@@ -139,7 +139,7 @@ object Pipeline {
       )
       val result = Await.result(wikiArts, Duration.Inf)
       YouTubeVideo(
-        youtubeVideo id,
+        youtubeVideo idVideo,
         youtubeVideo source,
         youtubeVideo.plainText,
         result.flatMap(_.toList).toList
