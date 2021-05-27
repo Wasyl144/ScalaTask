@@ -30,7 +30,6 @@ import io.circe.syntax._
 import io.circe.optics.JsonPath._
 import io.circe.generic.auto._
 
-
 import scala.util.{Failure, Success, Try}
 import akka.stream.Materializer
 import scala.language.{implicitConversions, postfixOps}
@@ -42,71 +41,131 @@ object Pipeline {
       system: ActorSystem
   ) = {
     val videosFuture =
-      Future.sequence(videoIdsFromFile(path).map(vidId => {
-        sendYouTubeRequest(vidId, config.lang).map(response =>
-          YTResponse(vidId, response)
-        )
-      }))
-    val videos = Await
+      Future.sequence(
+        videoIdsFromFile(path)
+          .map(vidId => {
+            try {
+              Some(sendYouTubeRequest(vidId, config.lang).map(response => {
+                YTResponse(vidId, response)
+              }))
+            } catch {
+              case e: Exception => {
+                None
+              }
+            }
+          })
+          .flatten
+      )
+    val videos: Set[YTReady] = Await
       .result(videosFuture, Duration.Inf)
       .map(ytRes => {
-        YTReady(
-          ytRes.id,
-          ytRes.source,
-          XML.loadString(ytRes.source).text.strip()
-        )
-      })
-    val nounsFuture: Future[Set[YTWithNouns]] =
-      Future.sequence(videos.map(youtubeData => {
-        NLPFilter
-          .filter(youtubeData.plainText)
-          .map(
-            YTWithNouns(
-              youtubeData.id,
-              youtubeData.source,
-              youtubeData.plainText,
-              _
+        try {
+          Some(
+            YTReady(
+              ytRes.id,
+              ytRes.source,
+              XML.loadString(ytRes.source).text.strip()
             )
           )
+        } catch {
+          case e: Exception => {
+            println(e.getMessage())
+            None
+          }
+        }
+      })
+      .flatten
 
-      }))
+    // println("\n\n\n\n\n\n")
+    // os.write(os.pwd / "data.json", videos.asJson.noSpaces)
+    // println("\n\n\n\n\n\n")
+
+    val nounsFuture: Future[Set[YTWithNouns]] =
+      Future.sequence(
+        videos
+          .map(youtubeData => {
+            try {
+              Some(
+                NLPFilter
+                  .filter(youtubeData.plainText)
+                  .map(setOfNouns => {
+                    YTWithNouns(
+                      youtubeData.id,
+                      youtubeData.source,
+                      youtubeData.plainText,
+                      setOfNouns
+                    )
+                  })
+              )
+            } catch {
+              case e: Exception => None
+            }
+
+          })
+          .flatten
+      )
+
     val nouns: Set[YTWithNouns] = Await.result(nounsFuture, Duration.Inf)
 
     val wikipediaArticlesFuture = nouns.map(youtubeVideo => {
-        val wikiArts = Future.sequence(youtubeVideo.list.map(noun => {
-          sendWikipediaRequest(noun, config.lang)
-            .map(response => {
-              parse(response) match {
-                case Left(json)  => None
-                case Right(json) => Some(json)
+      val wikiArts = Future.sequence(
+        youtubeVideo.list
+          .map(noun => {
+            try {
+              Some(
+                sendWikipediaRequest(noun, config.lang)
+                  .map(response => {
+                    parse(response) match {
+                      case Left(json)  => None
+                      case Right(json) => Some(json)
+                    }
+                  })
+                  .map(jsonRes => {
+                    val json = jsonRes.get
+                    val wikiArticlePlain =
+                      root.extract.string.getOption(json) match {
+                        case Some(value) => Some(value)
+                        case None        => None
+                      }
+                    val wikiArticle =
+                      root.extract_html.string.getOption(json) match {
+                        case Some(value) => Some(value)
+                        case None        => None
+                      }
+                    val wikiLink =
+                      root.content_urls.desktop.page.string
+                        .getOption(json) match {
+                        case Some(value) => Some(value)
+                        case None        => None
+                      }
+                    WikipediaArticles(
+                      wikiArticle.get,
+                      wikiArticlePlain.get,
+                      wikiLink.get
+                    )
+                  })
+              )
+            } catch {
+              case e: Exception => {
+                println(e.getMessage())
+                None
               }
-            })
-            .map(jsonRes => {
-              val json = jsonRes.get
-              val wikiArticlePlain =
-                root.extract.string.getOption(json) match {
-                  case Some(value) => Some(value)
-                  case None        => None
-                }
-              val wikiArticle =
-                root.extract_html.string.getOption(json) match {
-                  case Some(value) => Some(value)
-                  case None        => None
-                }
-              val wikiLink =
-                root.content_urls.desktop.page.string
-                  .getOption(json) match {
-                  case Some(value) => Some(value)
-                  case None        => None
-                }
-              WikipediaArticles(wikiArticle.get, wikiArticlePlain.get, wikiLink.get)
-            })
-        }))
-        val result = Await.result(wikiArts, Duration.Inf)
-        YouTubeVideo(youtubeVideo id, youtubeVideo source, youtubeVideo.plainText, result.toList)
-      })
+            }
+          })
+          .flatten
+      )
+      val result = Await.result(wikiArts, Duration.Inf)
+      YouTubeVideo(
+        youtubeVideo id,
+        youtubeVideo source,
+        youtubeVideo.plainText,
+        result.toList
+      )
+    })
 
-    os.write(os.pwd/"data.json", wikipediaArticlesFuture.asJson.noSpaces)
+    println("\n\n\n\n\n\n")
+    os.write(os.pwd / "data.json", wikipediaArticlesFuture.asJson.noSpaces)
+    println("\n\n\n\n\n\n")
 
   }
 
@@ -156,11 +215,11 @@ object Pipeline {
     val SUBTITLE_FORMAT = "&fmt=srv3"
 
     val request = HttpRequest(GET, uri = URL + "v=" + videoId + SUBTITLE_FORMAT)
-    println(URL + "v=" + videoId)
+    println(URL + "v=" + videoId + " - sending request")
+    Thread.sleep(500)
     val responseFuture = Http().singleRequest(request)
     val entityFuture: Future[HttpEntity.Strict] =
       responseFuture.flatMap(res => {
-        println(res.headers)
         res.entity.toStrict(3.seconds)
       })
     entityFuture.map(entity => entity.data.utf8String)
@@ -181,6 +240,7 @@ object Pipeline {
       WikiHttpClient.httpClientWithRedirect(simpleClient, lng)
 
     val request = HttpRequest(GET, uri = URL + word)
+    Thread.sleep(500)
 
     val entityFuture: Future[HttpEntity.Strict] =
       redirectingClient(request).flatMap(res => {
@@ -189,105 +249,4 @@ object Pipeline {
       })
     entityFuture.map(entity => entity.data.utf8String)
   }
-
-  // TODO: Refactor this code now is only for test purposes
-
-  // TODO: Create an Object to store data.
-
-  // DEV: Maybe create a microservice to store data, from requests
-
-  /** I'm catching a set of ids and im sending request one by one to youtube server
-    */
-
-  // TODO: Refactor code
-
-  // TODO: Serilaize response and push reult to json
-
-  // readFile.onComplete({
-  //   case Success(file) => {
-  //     file.foreach(videoId => {
-  //       sendYouTubeRequest(videoId).onComplete({
-  //         case Success(response) => {
-  //           val ytDirtyText = response;
-  //           val ytPlainText = XML.loadString(ytDirtyText).text.strip()
-  //           val nouns = NLPFilter.filter(ytPlainText)
-  //           println("YT Video ID: " + videoId + "\n")
-  //           println("YT Subtitles: " + ytPlainText + "\n")
-  //           val getList = nouns
-  //             .map(noun => {
-  //               Await
-  //                 .ready(sendWikipediaRequest(noun), Duration.Inf)
-  //                 .value
-  //                 .get match {
-  //                 case Success(wikiResp) => wikiResp
-  //                 case Failure(exception) => {
-  //                   println(exception.getMessage())
-  //                   false
-  //                 }
-
-  //               }
-  //             })
-  //             .toList
-  //             .filter(jsonWiki => {
-  //               parse(jsonWiki.toString()) match {
-  //                 case Left(failure) => {
-  //                   println("This is not a JSON format response")
-  //                   false
-  //                 }
-  //                 case Right(json) => {
-  //                   true
-  //                 }
-  //               }
-  //             })
-  //             .map(jsonFiltered => {
-  //               parse(jsonFiltered.toString()) match {
-  //                 case Right(json) => {
-  //                   val wikiArticlePlain =
-  //                     root.extract.string.getOption(json) match {
-  //                       case Some(value) => value
-  //                       case None        => Vector.empty
-  //                     }
-  //                   val wikiArticleDirty =
-  //                     root.extract_html.string.getOption(json) match {
-  //                       case Some(value) => value
-  //                       case None        => Vector.empty
-  //                     }
-  //                   val wikiLink =
-  //                     root.content_urls.desktop.page.string
-  //                       .getOption(json) match {
-  //                       case Some(value) => value
-  //                       case None        => Vector.empty
-  //                     }
-  //                   // println(XML.loadString(response).text + "\n")
-  //                   // println("Link to Wikipedia: " + wikiLink + "\n")
-  //                   // println("Wiki article(dirty): " + wikiArticleDirty + "\n")
-  //                   // println(
-  //                   //   "Wiki article(plaintext): " + wikiArticlePlain + "\n"
-  //                   // )
-  //                   new WikipediaArticles(
-  //                     wikiArticleDirty.toString(),
-  //                     wikiArticlePlain.toString(),
-  //                     wikiLink.toString()
-  //                   )
-  //                 }
-  //               }
-
-  //             })
-  //             println(getList)
-  //             val result = YouTubeVideo(videoId, ytDirtyText, ytPlainText, getList)
-  //             os.write(os.pwd/"data.json", result.asJson.noSpaces.toString())
-
-  //         }
-  //         case Failure(exception) => println(exception.getMessage())
-  //       })
-  //       println(
-  //         "////////////////////////////////////////////////////////////////"
-  //       )
-  //     })
-  //   }
-  //   case Failure(exception) => {
-  //     println(exception.getMessage())
-  //   }
-  // })
-
 }
