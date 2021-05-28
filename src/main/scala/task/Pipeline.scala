@@ -106,12 +106,16 @@ object Pipeline {
 
     val nouns: Set[YTWithNouns] = Await.result(nounsFuture, Duration.Inf)
 
+    println(nouns)
+
     logger info("Sending requests to Wikipedia")
 
     val wikipediaArticlesFuture = nouns.map(youtubeVideo => {
       val wikiArts = Future.sequence(
         youtubeVideo.list
           .map(noun => {
+            try{
+              Some(
                 sendWikipediaRequest(noun, config.lang).map(_
                   .map(response => {
                     parse(response) match {
@@ -135,7 +139,15 @@ object Pipeline {
                     })
                   })
               )
-          })
+              )
+            }
+            catch {
+              case e: Exception => {
+                logger error(e.getMessage())
+                None
+              }
+            }
+          }).flatten
       )
       val result = Await.result(wikiArts, Duration.Inf)
       YouTubeVideo(
