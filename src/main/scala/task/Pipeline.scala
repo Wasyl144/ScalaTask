@@ -37,6 +37,7 @@ import org.slf4j.LoggerFactory
 import task.modules
 import task.modules.filters.filter.NLPFilter
 import task.modules.httpClients.WikiHttpClient
+import task.modules.fileReader.FileReader
 
 object Pipeline {
 
@@ -48,7 +49,7 @@ object Pipeline {
   ) = {
     val videosFuture =
       Future.sequence(
-        videoIdsFromFile(path)
+        FileReader.videoIdsFromFile(path)
           .map(vidId => {
             try {
               Some(sendYouTubeRequest(vidId, config.lang).map(response => {
@@ -168,35 +169,6 @@ object Pipeline {
     
 
   }
-
-  /** ReadFile codeblock is used to return set of id's
-    * YouTube Videos
-    */
-
-  def videoIdsFromFile(path: String): Set[String] = {
-    val file = Source.fromFile(path).getLines()
-    val youTubeVideoRegex =
-      raw"^((?:https?:)?\/\/)?((?:www|m)\.)?((?:youtube\.com|youtu.be))(\/(?:[\w\-]+\?v=|embed\/|v\/)?)([\w\-]+)(\S+)?".r
-    file
-      .filter((value) => {
-        value match {
-          case youTubeVideoRegex(_*) => {
-            logger info("DEBUG: " + value + " its legit yt link")
-            true
-          }
-          case _ => {
-            logger error("DEBUG: Its not a YouTube legit link")
-            false
-          }
-        }
-      })
-      .map((value) => {
-        youTubeVideoRegex
-          .replaceAllIn(value, matchedString => matchedString.group(5))
-      })
-      .toSet
-  }
-
   /*
    * Now im creating a HttpClient to get the YouTube Captions
    */
@@ -244,10 +216,9 @@ object Pipeline {
 
     val entityFuture: Future[Option[HttpEntity.Strict]] =
       redirectingClient(request).flatMap(res => {
-        if (res.status == NotFound) {
-          None
-        }
-        res.entity.toStrict(3.seconds).map(Some(_))
+          
+          res.entity.toStrict(3.seconds).map(Some(_))
+        
       })
     entityFuture.map(_.map(_.data.utf8String))
   }

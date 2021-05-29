@@ -20,16 +20,22 @@ class PipelineTest extends AnyFlatSpec with Matchers {
   // Init Akka streams
   implicit val materializer = ActorMaterializer()
 
-  "videoIdsFromFile with unexistent file" should "throw FileNotFound exception" in {
-    an[java.io.FileNotFoundException] should be thrownBy Pipeline
-      .videoIdsFromFile("dewfwefwe")
-  }
+  /**
+    * Proably im need to refactor http client
+    * I cannot make tests cuz I dont know a status of response
+    */
 
-  "Article which not exists" should "return option: None" in {
-    val responseFuture: Future[Option[String]] = Pipeline.sendWikipediaRequest("gjhgjhgjk", "en")
-    val response = Await.result(responseFuture, Duration.Inf)
+  // "Article which not exists" should "return option: None" in {
+  //   val responseFuture: Future[Option[String]] = Pipeline.sendWikipediaRequest("gjhgjhgjk", "en")
+  //   val response = Await.result(responseFuture, Duration.Inf)
     
-    assert(response.get == "")
-  } 
+  //   assert(response.get == "")
+  // } 
+
+  // "YT link which doesnt conatins subtitles" should "return option: None" in {
+  //   val responseFuture: Future[String] = Pipeline.sendYouTubeRequest("gjhgjhgjk", "en")
+  //   val response = Await.result(responseFuture, Duration.Inf)
+  //   println(response)
+  // } 
 
 }
