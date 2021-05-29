@@ -1,4 +1,4 @@
-package task
+package task.modules.filters.filter
 
 import scala.concurrent.ExecutionContext.Implicits.global
 import scala.concurrent.Future
@@ -11,6 +11,7 @@ import edu.stanford.nlp.trees._
 import java.{util => ju}
 import collection.JavaConverters._
 import org.slf4j.LoggerFactory
+import task.modules.filters.NounFilter
 
 object NLPFilter extends NounFilter {
   val logger = LoggerFactory.getLogger(getClass().getSimpleName())

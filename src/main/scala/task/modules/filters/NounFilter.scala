@@ -1,4 +1,4 @@
-package task
+package task.modules.filters
 
 import scala.concurrent.Future
 

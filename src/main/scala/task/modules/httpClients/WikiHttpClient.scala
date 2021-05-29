@@ -1,4 +1,4 @@
-package task
+package task.modules.httpClients
 
 import akka.http.scaladsl.model.HttpRequest
 import scala.concurrent.Future

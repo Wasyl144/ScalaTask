@@ -4,6 +4,7 @@ import akka.actor.ActorSystem
 import akka.stream.ActorMaterializer
 import com.typesafe.config.ConfigFactory
 import org.slf4j.LoggerFactory
+import scala.concurrent.ExecutionContext.Implicits.global
 
 object Main extends App{
   val logger = LoggerFactory.getLogger(getClass().getSimpleName())

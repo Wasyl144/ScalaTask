@@ -34,6 +34,9 @@ import scala.util.{Failure, Success, Try}
 import akka.stream.Materializer
 import scala.language.{implicitConversions, postfixOps}
 import org.slf4j.LoggerFactory
+import task.modules
+import task.modules.filters.filter.NLPFilter
+import task.modules.httpClients.WikiHttpClient
 
 object Pipeline {
 
@@ -160,7 +163,7 @@ object Pipeline {
 
     
     logger info ("Saving result to file... \n")
-    os.write(os.pwd / "data.json", wikipediaArticlesFuture.asJson.noSpaces)
+    os.write.over(os.pwd / "data.json", wikipediaArticlesFuture.asJson.noSpaces)
     logger info ("Done \n")
     
 
