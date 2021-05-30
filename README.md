@@ -14,3 +14,5 @@ The result of function is list of YouTubeVideo class.
 
 To return result as a readable format im used a JSON file. I've used a circe auto JSON parser.
 
+## To use a program you need to give 5gb of RAM to JVM
+
