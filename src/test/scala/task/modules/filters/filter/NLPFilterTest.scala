@@ -15,7 +15,7 @@ class NLPFilterTest extends AnyFlatSpec with Matchers {
     }
 
     "Filter with numbers" should "return empty set" in {
-        val filterFuture = NLPFilter.filter("2451 1514 5454555")
+        val filterFuture = NLPFilter.filter("1 2332 7874 $789456468765454646435")
         val filterResponse = Await.result(filterFuture, Duration.Inf)
         println(filterResponse)
         assert(filterResponse.count(p => true) == 0)
@@ -40,6 +40,13 @@ class NLPFilterTest extends AnyFlatSpec with Matchers {
         println(filterResponse)
         assert(filterResponse.count(p => true) >= 0)
     }
+    "Filter with punctuation marks " should "more than 0 results"  in {
+        val filterFuture = NLPFilter.filter(",,.,,@ @3,.,.1 ;';' ;';';'")
+        val filterResponse = Await.result(filterFuture, Duration.Inf)
+        println(filterResponse)
+        assert(filterResponse.count(p => true) == 0)
+    }
+    
 
 
 }
