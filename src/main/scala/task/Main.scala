@@ -24,7 +24,7 @@ object Main extends App{
         logger error(f"Usage: run [input file]")
         ()
       case arr =>{
-        val cfg = MyConfig(config.getString("app.LANG"))
+        val cfg = MyConfig(config.getString("app.YOUTUBEAPI_LINK"), config.getString("app.WIKIAPI_LINK"))
         Pipeline.boot(cfg, arr.head)
       }
     }

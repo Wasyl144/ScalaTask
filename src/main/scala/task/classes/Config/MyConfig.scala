@@ -1,3 +1,3 @@
 package task
 
-case class MyConfig (lang: String)
+case class MyConfig (ytLink: String, wikiLink: String)
