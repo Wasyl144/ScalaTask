@@ -5,11 +5,11 @@
 
 To solve the problem I've used a Akka Http Client and Stanford NLP.
 ## YouTube API
-I create a HttpRequest to YouTube using timedtext API. I've been trying to use a Java YouTube API, but after tests I'm got a problem with Subtitle API. An API only works when video is public to edit subtitles or if video is in my account, so I've used timedtext API. I'm geeting YT links from file and filter by regex to extract only YT links. Before send a request im putting an video ids to set to prevent duplicates. My function return a set of YTResponse classes.
+I create a HttpRequest to YouTube using timedtext API. I've been trying to use a Java YouTube API, but after tests I've got a problem with Subtitle API. An API only works when video is public to edit subtitles or if video is in my account, so I've used timedtext API. I'm geeting YT links from file and check them with regex to extract only YT links. Before send a request im putting video ids to set to prevent duplicates. My function return a set of YTResponse objects.
 ## Stanford NLP
-Every YTResponse class has plain texted subtitles which are passed to my NLPFilter object. I was created an NounFilter trait because someone who dont want my filter can write own one. Filter returns a set of nouns. It will be saved to YTReady class.
+Every YTResponse object has plaintext subtitles which are passed to my NLPFilter object. Filter returns a set of nouns. It will be saved to YTReady object.
 ## Wikipedia REST API
-Set of YTReady class are mapped to single YTReady class and later are mapped to single noun request. Every response is saved to WikipediaArticles class. When it  finishes, list with WikipediaArticles is created and attached to YouTubeVideo class to serialize the result.
+Set of YTReady objects are mapped to single YTReady object and later are mapped to single noun request. Every response is saved to WikipediaArticles object. When it  finishes, list with WikipediaArticles is created and attached to YouTubeVideo object to serialize the result.
 The result of function is list of YouTubeVideo objects.
 
 I used Circe to convert result into JSON format.
