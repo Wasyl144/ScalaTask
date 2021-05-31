@@ -3,13 +3,13 @@
 
 # My solution
 
-To solve the problem I've used a Akka Http Client and Stanford NLP.
+To solve the problem I've used Akka Http Client and Stanford NLP Lib.
 ## YouTube API
-I create a HttpRequest to YouTube using timedtext API. I've been trying to use a Java YouTube API, but after tests I've got a problem with Subtitle API. An API only works when video is public to edit subtitles or if video is in my account, so I've used timedtext API. I'm geeting YT links from file and check them with regex to extract only YT links. Before send a request im putting video ids to set to prevent duplicates. My function return a set of YTResponse objects.
+I create a HttpRequest to YouTube using timedtext API. I've been trying to use a Java YouTube API, but after tests I've got a problem with Subtitle API. The API only works when video is public to edit subtitles or if video is in my account, so I've used timedtext API. I take YT links from file and check them with regex to extract only YT links. I put video ids into a Set. My function return a set of YTResponse objects.
 ## Stanford NLP
 Every YTResponse object has plaintext subtitles which are passed to my NLPFilter object. Filter returns a set of nouns. It will be saved to YTReady object.
 ## Wikipedia REST API
-Set of YTReady objects are mapped to single YTReady object and later are mapped to single noun request. Every response is saved to WikipediaArticles object. When it  finishes, list with WikipediaArticles is created and attached to YouTubeVideo object to serialize the result.
+Set of YTReady objects are mapped to single YTReady object and later are mapped to a single noun request. Every response is saved to WikipediaArticles object. When it  finishes, list with WikipediaArticles is created and attached to YouTubeVideo object to serialize the result.
 The result of function is list of YouTubeVideo objects.
 
 I used Circe to convert result into JSON format.
