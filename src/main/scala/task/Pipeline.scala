@@ -36,7 +36,8 @@ import scala.language.{implicitConversions, postfixOps}
 import org.slf4j.LoggerFactory
 import task.modules
 import task.modules.filters.filter.NLPFilter
-import task.modules.httpClients.WikiHttpClient
+import task.modules.httpClients.Client
+import task.modules.fileReader.FileReader
 
 object Pipeline {
 
@@ -48,31 +49,34 @@ object Pipeline {
   ) = {
     val videosFuture =
       Future.sequence(
-        videoIdsFromFile(path)
+        FileReader.videoIdsFromFile(path)
           .map(vidId => {
             try {
-              Some(sendYouTubeRequest(vidId, config.lang).map(response => {
+              Some(sendRequest(vidId, config.ytLink).map(_.map(response => {
                 YTResponse(vidId, response)
-              }))
+              })))
             } catch {
               case e: Exception => {
                 None
               }
             }
-          })
-          .flatten
+          }).flatten
+          
       )
     val videos: Set[YTReady] = Await
       .result(videosFuture, Duration.Inf)
-      .map(ytRes => {
+      .map(yt => {
         try {
-          Some(
+          yt.map(ytRes => {
+            Some(
             YTReady(
               ytRes.idVideo,
               ytRes.source,
               XML.loadString(ytRes.source).text.strip()
             )
           )
+          }).flatten
+          
         } catch {
           case e: Exception => {
             logger error(e.getMessage())
@@ -109,8 +113,6 @@ object Pipeline {
 
     val nouns: Set[YTWithNouns] = Await.result(nounsFuture, Duration.Inf)
 
-    println(nouns)
-
     logger info("Sending requests to Wikipedia")
 
     val wikipediaArticlesFuture = nouns.map(youtubeVideo => {
@@ -119,7 +121,7 @@ object Pipeline {
           .map(noun => {
             try{
               Some(
-                sendWikipediaRequest(noun, config.lang).map(_
+                sendRequest(noun, config.wikiLink).map(_
                   .map(response => {
                     parse(response) match {
                       case Left(json)  => None
@@ -165,89 +167,27 @@ object Pipeline {
     logger info ("Saving result to file... \n")
     os.write.over(os.pwd / "data.json", wikipediaArticlesFuture.asJson.noSpaces)
     logger info ("Done \n")
-    
-
   }
 
-  /** ReadFile codeblock is used to return set of id's
-    * YouTube Videos
-    */
-
-  def videoIdsFromFile(path: String): Set[String] = {
-    val file = Source.fromFile(path).getLines()
-    val youTubeVideoRegex =
-      raw"^((?:https?:)?\/\/)?((?:www|m)\.)?((?:youtube\.com|youtu.be))(\/(?:[\w\-]+\?v=|embed\/|v\/)?)([\w\-]+)(\S+)?".r
-    file
-      .filter((value) => {
-        value match {
-          case youTubeVideoRegex(_*) => {
-            logger info("DEBUG: " + value + " its legit yt link")
-            true
-          }
-          case _ => {
-            logger error("DEBUG: Its not a YouTube legit link")
-            false
-          }
-        }
-      })
-      .map((value) => {
-        youTubeVideoRegex
-          .replaceAllIn(value, matchedString => matchedString.group(5))
-      })
-      .toSet
-  }
-
-  /*
-   * Now im creating a HttpClient to get the YouTube Captions
-   */
-
-  def sendYouTubeRequest(videoId: String, lng: String)(implicit
-      materializer: Materializer,
-      system: ActorSystem
-  ): Future[String] = {
-    // You can choose any language of transcription if you want
-    val LANG: String = s"lang=$lng&"
-
-    // Initialize YouTube timedtext API URL with params
-    val URL: String = "https://www.youtube.com/api/timedtext?" + LANG
-
-    // Param neede to better text format
-    val SUBTITLE_FORMAT = "&fmt=srv3"
-
-    val request = HttpRequest(GET, uri = URL + "v=" + videoId + SUBTITLE_FORMAT)
-    logger info(URL + "v=" + videoId + " - sending request")
-    Thread.sleep(500)
-    val responseFuture = Http().singleRequest(request)
-    val entityFuture: Future[HttpEntity.Strict] =
-      responseFuture.flatMap(res => {
-        res.entity.toStrict(3.seconds)
-      })
-    entityFuture.map(entity => entity.data.utf8String)
-  }
-
-  def sendWikipediaRequest(word: String, lng: String)(implicit
+  def sendRequest(word: String, url: String)(implicit
       materializer: Materializer,
       system: ActorSystem
   ): Future[Option[String]] = {
 
     // Init wikipedia RESTAPI URL
-    val URL: String =
-      s"https://$lng.wikipedia.org/api/rest_v1/page/summary/"
-
     val simpleClient = Http().singleRequest(_: HttpRequest)
 
     val redirectingClient =
-      WikiHttpClient.httpClientWithRedirect(simpleClient, lng)
+      Client.httpClientWithRedirect(simpleClient, url)
 
-    val request = HttpRequest(GET, uri = URL + word)
+    val request = HttpRequest(GET, uri = url + word)
     Thread.sleep(500)
 
     val entityFuture: Future[Option[HttpEntity.Strict]] =
       redirectingClient(request).flatMap(res => {
-        if (res.status == NotFound) {
-          None
-        }
-        res.entity.toStrict(3.seconds).map(Some(_))
+          
+          res.entity.toStrict(3.seconds).map(Some(_))
+        
       })
     entityFuture.map(_.map(_.data.utf8String))
   }
