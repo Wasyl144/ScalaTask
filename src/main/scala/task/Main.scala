@@ -6,7 +6,7 @@ import com.typesafe.config.ConfigFactory
 import org.slf4j.LoggerFactory
 import scala.concurrent.ExecutionContext.Implicits.global
 
-object Main extends App{
+object Main extends App {
   val logger = LoggerFactory.getLogger(getClass().getSimpleName())
 
   // Init akka.actors
@@ -15,20 +15,21 @@ object Main extends App{
   // Init Akka streams
   implicit val materializer = ActorMaterializer()
 
-  // load config 
+  // load config
   val config = ConfigFactory.load()
 
-  try {
-    args match {
-      case arr if arr.length != 1 =>
-        logger error(f"Usage: run [input file]")
-        ()
-      case arr =>{
-        val cfg = MyConfig(config.getString("app.YOUTUBEAPI_LINK"), config.getString("app.WIKIAPI_LINK"))
-        Pipeline.boot(cfg, arr.head)
-      }
+  args.toList match {
+    case List(x) => {
+      val cfg = MyConfig(
+        config.getString("app.YOUTUBEAPI_LINK"),
+        config.getString("app.WIKIAPI_LINK")
+      )
+      Pipeline.boot(cfg, x)
     }
-  } catch {
-    case e: Exception => logger error (e.getMessage())
+
+    case _ =>
+      logger error (f"Usage: run [input file]")
+      ()
   }
+  system.terminate()
 }
