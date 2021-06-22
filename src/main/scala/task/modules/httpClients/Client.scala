@@ -12,6 +12,7 @@ import scala.concurrent.ExecutionContext
 import akka.http.scaladsl.model.StatusCodes.ClientError
 import scala.language.{implicitConversions, postfixOps}
 import scala.util.matching.Regex
+import task.classes.Exceptions.PageNotFoundException
 
 object Client {
   type HttpClient = HttpRequest ⇒ Future[HttpResponse]
@@ -34,6 +35,7 @@ object Client {
 
         client(HttpRequest(method = HttpMethods.GET, uri = newUri))
       }
+      case StatusCodes.NotFound => Future.failed(PageNotFoundException())
 
       case _ ⇒ Future.successful(response)
     }
@@ -46,7 +48,7 @@ object Client {
       req ⇒
         client(req).flatMap(
           redirectOrResult(redirectingClient, url)
-        ) // recurse to support multiple redirects
+        )
     redirectingClient
   }
 }

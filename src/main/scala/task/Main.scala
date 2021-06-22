@@ -31,5 +31,5 @@ object Main extends App {
       logger error (f"Usage: run [input file]")
       ()
   }
-  system.terminate()
+  // system.terminate()
 }

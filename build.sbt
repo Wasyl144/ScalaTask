@@ -28,3 +28,5 @@ libraryDependencies ++= Seq(
     "org.scalatest" %% "scalatest" % scalaTestVersion,
     "org.scalatest" %% "scalatest" % scalaTestVersion % "test"
 )
+
+javaOptions += "-Xmx5G"
