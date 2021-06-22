@@ -119,8 +119,10 @@ object Pipeline {
           NLPFilter.filter
         })
 
-        val flowWikipediaRequest = builder.add(Flow[Set[String]].mapAsync(1) {
-          sendRequest(_, config.wikiLink)
+        val flowWikiRequest = builder.add(Flow[Set[String]] map {
+          _ map {
+            sendRequest(_, config.wikiLink)
+          }
         })
 
         fileSource ~> flowCheckYtlink ~> flowSendYoutubeRequest ~> flowNLPFilter ~> output
